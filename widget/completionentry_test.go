@@ -228,3 +228,22 @@ func TestCompletionEntry_DoubleSubmissionIssue(t *testing.T) {
 	win.Canvas().Focused().TypedKey(&fyne.KeyEvent{Name: fyne.KeyReturn}) // OnSubmitted should be called
 	assert.True(t, submitted)
 }
+
+// OnFocusGained fires when the entry gains focus and can be used to show the
+// completion menu (e.g. of all options) without subclassing CompletionEntry.
+func TestCompletionEntry_OnFocusGained(t *testing.T) {
+	entry := NewCompletionEntry(entryData)
+	called := false
+	entry.OnFocusGained = func() {
+		called = true
+		entry.ShowCompletion()
+	}
+	win := test.NewWindow(entry)
+	win.Resize(fyne.NewSize(500, 300))
+	defer win.Close()
+
+	win.Canvas().Focus(entry)
+	assert.True(t, called)
+	assert.NotNil(t, entry.popupMenu)
+	assert.True(t, entry.popupMenu.Visible())
+}
