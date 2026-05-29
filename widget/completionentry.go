@@ -18,10 +18,6 @@ type CompletionEntry struct {
 	CustomCreate func() fyne.CanvasObject
 	CustomUpdate func(id widget.ListItemID, object fyne.CanvasObject)
 
-	// OnFocusGained, if set, is called after the entry gains focus. It allows
-	// callers to react to focus (for example, to show the completion menu of
-	// all options when the field is focused while empty) without subclassing
-	// CompletionEntry, which would break the popup's canvas lookups.
 	OnFocusGained func()
 }
 
