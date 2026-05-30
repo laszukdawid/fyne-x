@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
 	"github.com/stretchr/testify/assert"
@@ -229,21 +230,46 @@ func TestCompletionEntry_DoubleSubmissionIssue(t *testing.T) {
 	assert.True(t, submitted)
 }
 
-// OnFocusGained fires when the entry gains focus and can be used to show the
-// completion menu (e.g. of all options) without subclassing CompletionEntry.
-func TestCompletionEntry_OnFocusGained(t *testing.T) {
-	entry := NewCompletionEntry(entryData)
-	called := false
-	entry.OnFocusGained = func() {
-		called = true
-		entry.ShowCompletion()
-	}
-	win := test.NewWindow(entry)
+// focusCompletionEntry is a CompletionEntry subclass that shows the completion
+// menu whenever it gains focus, exercising the standard fyne way of reacting to
+// focus by overriding FocusGained.
+type focusCompletionEntry struct {
+	CompletionEntry
+}
+
+func (f *focusCompletionEntry) FocusGained() {
+	f.CompletionEntry.FocusGained()
+	f.ShowCompletion()
+}
+
+// A CompletionEntry can be embedded with FocusGained overridden; the popup must
+// resolve its canvas and position against the extending widget, so it appears
+// just below the entry rather than at the canvas origin. Before the fix the
+// popup methods used the embedded value (not registered in the canvas), which
+// resolved the position to (0,0) here and panicked under the real driver.
+func TestCompletionEntry_SubclassFocusGained(t *testing.T) {
+	entry := &focusCompletionEntry{}
+	entry.Options = entryData
+	entry.ExtendBaseWidget(entry)
+
+	// Nest the entry below another widget so its absolute position is non-zero.
+	win := test.NewWindow(container.NewVBox(widget.NewLabel("top"), entry))
 	win.Resize(fyne.NewSize(500, 300))
 	defer win.Close()
 
 	win.Canvas().Focus(entry)
-	assert.True(t, called)
 	assert.NotNil(t, entry.popupMenu)
 	assert.True(t, entry.popupMenu.Visible())
+
+	// The popup resolves its canvas and position against the extending widget,
+	// which is the object registered in the canvas tree.
+	assert.Equal(t, fyne.Widget(entry), entry.superObject())
+
+	// The entry is nested below a label, so its absolute position is non-zero;
+	// the popup must sit just below it. Resolving against the (unregistered)
+	// embedded value instead would yield (0,0) and mispositioned the popup.
+	entryPos := fyne.CurrentApp().Driver().AbsolutePositionForObject(entry)
+	assert.Greater(t, entryPos.Y, float32(0), "entry should be nested below the origin")
+	assert.Equal(t, entryPos.Add(fyne.NewPos(0, entry.Size().Height)), entry.popUpPos(),
+		"popup should be positioned just below the entry, not at the canvas origin")
 }
