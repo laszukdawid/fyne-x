@@ -18,9 +18,6 @@ type CompletionEntry struct {
 	CustomCreate func() fyne.CanvasObject
 	CustomUpdate func(id widget.ListItemID, object fyne.CanvasObject)
 
-	// impl records the extending widget (set via ExtendBaseWidget) so the
-	// completion popup resolves its canvas and position against the object
-	// registered in the canvas, even when CompletionEntry is embedded.
 	impl fyne.Widget
 }
 
@@ -31,19 +28,14 @@ func NewCompletionEntry(options []string) *CompletionEntry {
 	return c
 }
 
-// ExtendBaseWidget records the extending widget so the completion popup can
-// resolve its canvas and position against the object actually registered in the
-// canvas. This mirrors fyne's own SelectEntry and lets a subclass override
-// FocusGained (to e.g. show the completion menu on focus) without breaking the
-// popup's canvas lookup.
+// ExtendBaseWidget is used by an extending widget to make use of CompletionEntry functionality.
 func (c *CompletionEntry) ExtendBaseWidget(wid fyne.Widget) {
 	c.impl = wid
 	c.Entry.ExtendBaseWidget(wid)
 }
 
-// superObject returns the widget to use for canvas and position lookups: the
-// extending widget when CompletionEntry is embedded, otherwise itself.
-func (c *CompletionEntry) superObject() fyne.Widget {
+// super returns the extending widget if set, otherwise the CompletionEntry itself.
+func (c *CompletionEntry) super() fyne.Widget {
 	if c.impl != nil {
 		return c.impl
 	}
@@ -108,7 +100,7 @@ func (c *CompletionEntry) ShowCompletion() {
 		c.navigableList.UnselectAll()
 		c.navigableList.selected = -1
 	}
-	holder := fyne.CurrentApp().Driver().CanvasForObject(c.superObject())
+	holder := fyne.CurrentApp().Driver().CanvasForObject(c.super())
 
 	if c.popupMenu == nil {
 		c.popupMenu = widget.NewPopUp(c.navigableList, holder)
@@ -120,7 +112,7 @@ func (c *CompletionEntry) ShowCompletion() {
 
 // calculate the max size to make the popup to cover everything below the entry
 func (c *CompletionEntry) maxSize() fyne.Size {
-	cnv := fyne.CurrentApp().Driver().CanvasForObject(c.superObject())
+	cnv := fyne.CurrentApp().Driver().CanvasForObject(c.super())
 
 	if c.itemHeight == 0 {
 		// set item height to cache
@@ -129,7 +121,7 @@ func (c *CompletionEntry) maxSize() fyne.Size {
 
 	canvasSize := cnv.Size()
 	entrySize := c.Size()
-	entryPos := fyne.CurrentApp().Driver().AbsolutePositionForObject(c.superObject())
+	entryPos := fyne.CurrentApp().Driver().AbsolutePositionForObject(c.super())
 	listHeight := float32(len(c.Options))*(c.itemHeight+2*theme.Padding()+theme.SeparatorThicknessSize()) + 2*theme.Padding()
 	maxHeight := canvasSize.Height - entryPos.Y - entrySize.Height - 2*theme.Padding()
 
@@ -142,7 +134,7 @@ func (c *CompletionEntry) maxSize() fyne.Size {
 
 // calculate where the popup should appear
 func (c *CompletionEntry) popUpPos() fyne.Position {
-	entryPos := fyne.CurrentApp().Driver().AbsolutePositionForObject(c.superObject())
+	entryPos := fyne.CurrentApp().Driver().AbsolutePositionForObject(c.super())
 	return entryPos.Add(fyne.NewPos(0, c.Size().Height))
 }
 
